@@ -8,6 +8,7 @@
 #include "osdk_vehicle.hpp"
 #include "osdk_movement.hpp"
 #include "osdk_telemetry.hpp"
+#include "osdk_virtual_rc.hpp"
 
 namespace DIABLO{
 namespace OSDK{
@@ -16,13 +17,15 @@ class Vehicle
 {
 public: 
     Vehicle(HAL* hal): hal(hal),
-    movement_ctrl(NULL), 
+    movement_ctrl(NULL),
+    virtual_rc(NULL),
     telemetry(NULL)
     {}
 
     ~Vehicle()
     {
         if(movement_ctrl) delete movement_ctrl;
+        if(virtual_rc)    delete virtual_rc;
         if(telemetry)     delete telemetry;
     }
 
@@ -36,6 +39,7 @@ public:
     
 public:
     Movement_Ctrl*  movement_ctrl;
+    Virtual_RC*     virtual_rc;
     Telemetry*      telemetry;
 
 };

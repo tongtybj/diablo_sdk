@@ -1,6 +1,7 @@
 #include "diablo_utils/diablo_tools/osdk_header.hpp"
 #include "diablo_utils/diablo_tools/osdk_vehicle.hpp"
 #include "diablo_utils/diablo_tools/osdk_telemetry.hpp"
+#include "diablo_utils/diablo_tools/osdk_virtual_rc.hpp"
 
 using namespace DIABLO::OSDK;
 
@@ -281,6 +282,7 @@ void Telemetry::SerialHandle(void)
         {
             memcpy(&this->status, pData, sizeof(OSDK_Push_Data_Status_t));
             vehicle->movement_ctrl->CtrlStatusMonitorHandle(status.ctrl_mode);
+            vehicle->virtual_rc->CtrlStatusMonitorHandle(status.ctrl_mode);
             pData += sizeof(OSDK_Push_Data_Status_t);
             setNewcomeFlag(0x40);
 	        /*
