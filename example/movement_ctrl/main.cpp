@@ -16,6 +16,7 @@ void teleop_ctrl(const std_msgs::String::ConstPtr& msg)
         pMovementCtrl->ctrl_data.up=0.0f;
     pMovementCtrl->ctrl_data.forward = 0.0f;
     pMovementCtrl->ctrl_data.left = 0.0f;
+
     for(const char& c : msg->data)
     {
         switch(c)
@@ -93,11 +94,24 @@ void teleop_ctrl(const std_msgs::String::ConstPtr& msg)
                 break;
         }
     }
+}
 
-    if(pMovementCtrl->ctrl_mode_cmd)
-    {uint8_t result = pMovementCtrl->SendMovementModeCtrlCmd();}
-    else
-    {uint8_t result = pMovementCtrl->SendMovementCtrlCmd();}
+void timer_callback(const ros::TimerEvent& e)
+{
+  if(!pMovementCtrl->in_control())
+    {
+      pMovementCtrl->obtain_control();
+      return;
+    }
+
+  if(pMovementCtrl->ctrl_mode_cmd)
+    {
+      uint8_t result = pMovementCtrl->SendMovementModeCtrlCmd();
+    }
+  else
+    {
+      uint8_t result = pMovementCtrl->SendMovementCtrlCmd();
+    }
 }
 
 int main(int argc, char** argv)
@@ -106,7 +120,7 @@ int main(int argc, char** argv)
     ros::NodeHandle nh("~");
 
     DIABLO::OSDK::HAL_Pi Hal;
-    if(Hal.init()) return -1;
+    if(Hal.init("/dev/ttyAMA0")) return -1;
 
     DIABLO::OSDK::Vehicle vehicle(&Hal);                                  //Initialize Onboard SDK
     if(vehicle.init()) return -1;
@@ -114,8 +128,8 @@ int main(int argc, char** argv)
     vehicle.telemetry->activate();
     //vehicle.telemetry->configTopic(DIABLO::OSDK::TOPIC_MOTOR, OSDK_PUSH_DATA_1Hz);
     //vehicle.telemetry->configTopic(DIABLO::OSDK::TOPIC_QUATERNION, OSDK_PUSH_DATA_100Hz);
-    // vehicle.telemetry->configTopic(DIABLO::OSDK::TOPIC_ACCL, OSDK_PUSH_DATA_100Hz);
-    // vehicle.telemetry->configTopic(DIABLO::OSDK::TOPIC_GYRO, OSDK_PUSH_DATA_100Hz);
+    //vehicle.telemetry->configTopic(DIABLO::OSDK::TOPIC_ACCL, OSDK_PUSH_DATA_100Hz);
+    //vehicle.telemetry->configTopic(DIABLO::OSDK::TOPIC_GYRO, OSDK_PUSH_DATA_100Hz);
     //vehicle.telemetry->configUpdate(); 
     //vehicle.telemetry->enableLog(DIABLO::OSDK::TOPIC_POWER);
     //vehicle.telemetry->enableLog(DIABLO::OSDK::TOPIC_QUATERNION);
@@ -123,6 +137,7 @@ int main(int argc, char** argv)
     //vehicle.telemetry->enableLog(DIABLO::OSDK::TOPIC_GYRO);
     pMovementCtrl = vehicle.movement_ctrl;
     ros::Subscriber sub = nh.subscribe("/DJ_teleop", 1, teleop_ctrl); //subscribe to ROS topic
+    ros::Timer timer = nh.createTimer(ros::Duration(0.1), timer_callback);
 
     ros::spin();
 
