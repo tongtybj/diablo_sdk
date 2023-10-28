@@ -2,6 +2,7 @@
 #include "diablo_utils/diablo_tools/osdk_vehicle.hpp"
 #include "diablo_utils/diablo_tools/osdk_movement.hpp"
 
+using namespace std;
 using namespace DIABLO::OSDK;
 
 uint8_t Movement_Ctrl::obtain_control(uint16_t timeout_ms)
@@ -26,6 +27,7 @@ uint8_t Movement_Ctrl::obtain_control(uint16_t timeout_ms)
     uint16_t ack = -1;
     while(ack != 0x0002)
     {
+        // printf("Wait ack to get AUTHORIZE\n");
         uint8_t result = vehicle->hal->serialSend_ack(header.data, ack, 
             OSDK_CONTROL_SET, OSDK_CTRL_AUTHORIZE_ID,
             &req, sizeof(OSDK_Movement_Ctrl_Request_t));
@@ -33,12 +35,12 @@ uint8_t Movement_Ctrl::obtain_control(uint16_t timeout_ms)
         if(result) return result;
         if(ack == 0x0000)
         {
-            printf("ERROR: SDK control disable on manual movement_ctrl, check your robot.\n");
+            // printf("ERROR: SDK control disable on manual movement_ctrl, check your robot.\n");
             return 3;
         }
         if(ack == 0x000A)
         {
-            printf("ERROR: Cannot switch to SDK control, check your robot status.\n");
+            // printf("ERROR: Cannot switch to SDK control, check your robot status.\n");
             return 3;
         }
         usleep(5000);
@@ -75,6 +77,7 @@ uint8_t Movement_Ctrl::release_control()
     return 0;
 }
 
+
 void Movement_Ctrl::CtrlStatusMonitorHandle(const uint8_t ctrl_mode)
 { 
     if(ctrl_mode == 1)
@@ -86,6 +89,7 @@ void Movement_Ctrl::CtrlStatusMonitorHandle(const uint8_t ctrl_mode)
     {
         if(dropCtrlCnt > 10)
         {
+            // printf("drop out is %d and ctrl mode is %d",(1<<(vehicle->telemetry->id*2)),ctrl_mode);
             if(ctrl_status == CTRL_OBTAINED)
                 std::cout<<"Motion control authority released by vehicle"<<std::endl;
             this->SerialDisconnectHandle();
@@ -178,10 +182,11 @@ uint8_t Movement_Ctrl::SendMovementModeCtrlCmd()
         if(result) return result;
     }
 
-    printf("==MOVEMENT CONTROL MODE SET==\n");
+    // printf("==MOVEMENT CONTROL MODE SET==\n");
     ctrl_mode_cmd = false;
     return 0;
 }
+
 
 uint8_t Movement_Ctrl::SendMovementCtrlCmd()
 {
@@ -220,6 +225,7 @@ uint8_t Movement_Ctrl::SendTransformUpCmd()
         return 0;
     }
 
+    transform_data.jump = 0;
     transform_data.transform_down = 0;
     transform_data.transform_up = 1;
     Header header;
@@ -250,6 +256,75 @@ uint8_t Movement_Ctrl::SendTransformUpCmd()
     return 0;
 }
 
+
+
+uint8_t Movement_Ctrl::SendJumpCmd(uint8_t Jump_mark)
+{
+    
+    transform_data.jump = Jump_mark;
+    Header header;
+    header.data.LEN = sizeof(OSDK_Uart_Header_t) + 
+        sizeof(OSDK_Transform_Cmd_t) + OSDK_MISC_SIZE;
+    header.data.SESSION  = 2;
+    header.data.ACK = 1;
+    header.data.SEQ = vehicle->hal->serial_getSeq();
+    header.append_crc();
+
+    uint16_t ack = -1;
+    while(ack != 1)
+    {
+        uint8_t result = vehicle->hal->serialSend_ack(header.data, ack,
+            OSDK_CONTROL_SET, OSDK_TRANSFORM_ID,
+            &transform_data, sizeof(OSDK_Transform_Cmd_t));
+        
+        if(result) return result;
+
+        if(ack == 0)
+        {
+            return 0xFF;
+        }
+        usleep(10000);
+    }
+
+    return 0;
+}
+
+
+uint8_t Movement_Ctrl::SendDanceCmd(uint8_t dance_mark)
+{
+    if(dance_mark){
+        transform_data.automation = 2;
+    }else{
+        transform_data.automation = 0;
+    }
+    Header header;
+    header.data.LEN = sizeof(OSDK_Uart_Header_t) + 
+        sizeof(OSDK_Transform_Cmd_t) + OSDK_MISC_SIZE;
+    header.data.SESSION  = 2;
+    header.data.ACK = 1;
+    header.data.SEQ = vehicle->hal->serial_getSeq();
+    header.append_crc();
+
+    uint16_t ack = -1;
+    while(ack != 1)
+    {
+        uint8_t result = vehicle->hal->serialSend_ack(header.data, ack,
+            OSDK_CONTROL_SET, OSDK_TRANSFORM_ID,
+            &transform_data, sizeof(OSDK_Transform_Cmd_t));
+        
+        if(result) return result;
+
+        if(ack == 0)
+        {
+            return 0xFF;
+        }
+        usleep(10000);
+    }
+    
+    return 0;
+}
+
+
 uint8_t Movement_Ctrl::SendTransformDownCmd()
 {
     if(ctrl_status == CTRL_IDLE)
@@ -263,6 +338,7 @@ uint8_t Movement_Ctrl::SendTransformDownCmd()
         return 0;
     }
 
+    transform_data.jump = 0;
     transform_data.transform_down = 1;
     transform_data.transform_up = 0;
     Header header;
