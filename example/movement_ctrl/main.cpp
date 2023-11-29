@@ -1,5 +1,7 @@
 #include <ros/ros.h>
 #include <std_msgs/String.h>
+#include <std_msgs/Bool.h>
+#include <geometry_msgs/Twist.h>
 #include "diablo_sdk/OSDK_ACCL.h"
 #include "diablo_sdk/OSDK_GYRO.h"
 #include "diablo_sdk/OSDK_LEGMOTORS.h"
@@ -123,7 +125,28 @@ void ctrl_callback(const ros::TimerEvent& e)
     }
 }
 
-void teleop_ctrl(const std_msgs::String::ConstPtr& msg)
+
+void stand_cmd_cb(const std_msgs::Bool::ConstPtr& msg)
+{
+
+  if(!pMovementCtrl->in_control())
+    {
+      printf("to get movement ctrl.\n");
+      uint8_t result = pMovementCtrl->obtain_control();
+      return;
+    }
+
+  if(msg->data) pMovementCtrl->SendTransformUpCmd();
+  else pMovementCtrl->SendTransformDownCmd();
+}
+
+void twist_cmd_cb(const geometry_msgs::Twist::ConstPtr& msg)
+{
+  pMovementCtrl->ctrl_data.forward = msg->linear.x;
+  pMovementCtrl->ctrl_data.left = msg->angular.z;
+}
+
+void teleop_ctrl_cb(const std_msgs::String::ConstPtr& msg)
 {
     if(!pMovementCtrl->in_control())
     {
@@ -236,7 +259,9 @@ int main(int argc, char** argv)
     vehicle.telemetry->configUpdate();
 
     pMovementCtrl = vehicle.movement_ctrl;
-    ros::Subscriber sub = nh.subscribe("/DJ_teleop", 1, teleop_ctrl); //subscribe to ROS topic
+    ros::Subscriber orig_sub = nh.subscribe("/DJ_teleop", 1, teleop_ctrl_cb);
+    ros::Subscriber twist_sub = nh.subscribe("/cmd_vel", 1, twist_cmd_cb);
+    ros::Subscriber stand_sub = nh.subscribe("/cmd_stand", 1, stand_cmd_cb);
     ACCLPublisher = nh.advertise<diablo_sdk::OSDK_ACCL>("diablo_ros_ACCL_b", 10);
     GYROPublisher = nh.advertise<diablo_sdk::OSDK_GYRO>("diablo_ros_GYRO_b", 10);
     LEGMOTORSPublisher = nh.advertise<diablo_sdk::OSDK_LEGMOTORS>("diablo_ros_LEGMOTORS_b", 10);
